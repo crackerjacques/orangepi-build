@@ -453,7 +453,8 @@ if [[ ${IGNORE_UPDATES} != yes ]]; then
         else
             echo -e "[\e[0;31m ERROR \x1B[0m] Source directory not found: $CIX_DEBS_SOURCE"
     	fi
-
+	fi
+	
 	[[ $BUILD_OPT =~ kernel|image ]] && fetch_from_repo "$KERNELSOURCE" "$KERNELDIR" "$KERNELBRANCH" "yes"
 
 	if [[ -n ${ATFSOURCE} ]]; then
