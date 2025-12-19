@@ -103,7 +103,6 @@ cat <<'EOF' > "${SRC}"/userpatches/customize-image.sh
 
 echo -e "[\e[0;32m FIX \x1B[0m] Applying Network & SSH Config"
 
-# NetworkManagerの設定
 systemctl enable NetworkManager
 
 rm -f /etc/resolv.conf
@@ -113,75 +112,37 @@ echo "nameserver 1.1.1.1" >> /etc/resolv.conf
 ssh-keygen -A
 systemctl enable ssh
 
-TARGET_DIR="/opt/cix_debs"
+echo -e "[\e[0;32m SEARCH \x1B[0m] Looking for CIX packages..."
+
+TARGET_DIR="/tmp/overlay/opt/cix_debs"
+
+echo -e "[\e[0;32m INSTALL \x1B[0m] Checking target: $TARGET_DIR"
 
 if [ -d "$TARGET_DIR" ]; then
-    echo -e "[\e[0;32m INSTALL \x1B[0m] Installing CIX packages from $TARGET_DIR..."
+    count=$(ls "$TARGET_DIR"/*.deb 2>/dev/null | wc -l)
+    
+    if [ "$count" -gt 0 ]; then
+        echo -e "[\e[0;32m FOUND \x1B[0m] Found $count packages. Installing..."
+        
+        apt-get update || echo "Apt update failed, continuing..."
 
-    apt update
-    DEBIAN_FRONTEND=noninteractive apt install -y "$TARGET_DIR"/*.deb
-    
-    echo -e "[\e[0;32m FIX \x1B[0m] Fixing broken dependencies if any..."
-    DEBIAN_FRONTEND=noninteractive apt install --fix-broken -y
-    
-    echo -e "[\e[0;32m INFO \x1B[0m] Deb files are kept in $TARGET_DIR"
+        DEBIAN_FRONTEND=noninteractive apt-get install -y "$TARGET_DIR"/*.deb
+        
+        echo -e "[\e[0;32m FIX \x1B[0m] Fixing dependencies..."
+        DEBIAN_FRONTEND=noninteractive apt-get install --fix-broken -y
+        
+        echo -e "[\e[0;32m SUCCESS \x1B[0m] CIX packages installed."
+    else
+        echo -e "[\e[0;33m WARN \x1B[0m] Directory exists but is empty."
+    fi
 else
-    echo -e "[\e[0;33m WARN \x1B[0m] No CIX packages found at $TARGET_DIR."
-    ls -l /opt
+    echo -e "[\e[0;31m ERROR \x1B[0m] Target directory not found: $TARGET_DIR"
+    echo "DEBUG: Listing /tmp/overlay structure:"
+    ls -R /tmp/overlay 2>/dev/null
 fi
 
 echo -e "[\e[0;32m DONE \x1B[0m] Customization Complete"
 
-exit 0
-EOF
-
-# Generate customize-image.sh
-mkdir -p "${SRC}"/userpatches/overlay/etc/skel/Desktop
-
-cat <<'EOF' > "${SRC}"/userpatches/customize-image.sh
-#!/bin/bash
-
-echo "[\e[0;32m FIX \x1B[0m] Applying Time, Network & Ubuntu Defaults"
-
-apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y fake-hwclock
-date -u +'%Y-%m-%d %H:%M:%S' > /etc/fake-hwclock.data
-chmod 644 /etc/fake-hwclock.data
-
-systemctl enable systemd-timesyncd
-systemctl enable NetworkManager
-
-rm -f /etc/resolv.conf
-echo "nameserver 8.8.8.8" > /etc/resolv.conf
-echo "nameserver 1.1.1.1" >> /etc/resolv.conf
-
-ssh-keygen -A
-
-
-if [ -d "/tmp/cix_debs" ] && [ "$(ls -A /tmp/cix_debs/*.deb 2>/dev/null)" ]; then
-    echo "[\e[0;32m INSTALL \x1B[0m] Installing CIX Drivers..."
-    
-    DEBIAN_FRONTEND=noninteractive apt-get install -y /tmp/cix_debs/*.deb || \
-    ( echo "[\e[0;33m WARN \x1B[0m] Dependency issue detected, attempting fix..." && apt-get install -f -y )
-    
-    rm -rf /tmp/cix_debs
-else
-    echo "[\e[0;33m WARN \x1B[0m] No CIX driver packages found."
-fi
-
-echo "[\e[0;32m CLEAN \x1B[0m] Purging Orange Pi specific configs..."
-
-PURGE_LIST="orangepi-config orangepi-zsh plymouth-theme-orangepi orangepi-wallpapers"
-DEBIAN_FRONTEND=noninteractive apt-get purge -y $PURGE_LIST
-
-if [ -f /usr/share/glib-2.0/schemas/99_orangepi_defaults.gschema.override ]; then
-    rm /usr/share/glib-2.0/schemas/99_orangepi_defaults.gschema.override
-    glib-compile-schemas /usr/share/glib-2.0/schemas/
-fi
-
-DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ubuntu-session gnome-session fonts-ubuntu
-
-echo "[\e[0;32m FIX \x1B[0m] Customization Complete"
 exit 0
 EOF
 
