@@ -211,78 +211,84 @@ mkdir -p "${SRC}"/userpatches
 # Generate customize-image.sh (Security Fix & README via /etc/skel)
 mkdir -p "${SRC}"/userpatches/overlay/etc/skel/Desktop
 
+# Generate customize-image.sh (CIX Install & Security Fix)
 cat <<'EOF' > "${SRC}"/userpatches/customize-image.sh
 #!/bin/bash
 
-# ---------------------------------------------------------
-# ファイルの中身を一時ファイルとして定義
-# ---------------------------------------------------------
+echo -e "[\e[0;32m FIX \x1B[0m] Applying Network & SSH Config"
+systemctl enable NetworkManager
+rm -f /etc/resolv.conf
+echo "nameserver 8.8.8.8" > /etc/resolv.conf
+echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+ssh-keygen -A
+systemctl enable ssh
 
-cat <<'SCRIPT' > /tmp/patch_missings.sh
-#!/bin/bash
-echo "Adding missing Security repositories..."
+echo -e "[\e[0;32m SEARCH \x1B[0m] Looking for CIX packages..."
 
-cat <<REPO | sudo tee -a /etc/apt/sources.list
+CANDIDATE_DIRS=(
+    "/opt/cix_debs"
+    "/tmp/userpatches/overlay/opt/cix_debs"
+    "/tmp/overlay/opt/cix_debs"
+    "/userpatches/overlay/opt/cix_debs"
+)
 
+TARGET_DIR=""
+FOUND_COUNT=0
+
+for dir in "${CANDIDATE_DIRS[@]}"; do
+    echo -n "Checking candidate: $dir ... "
+    if [ -d "$dir" ]; then
+        count=$(ls "$dir"/*.deb 2>/dev/null | wc -l)
+        if [ "$count" -gt 0 ]; then
+            echo -e "[\e[0;32m FOUND \x1B[0m] (Contains $count debs)"
+            TARGET_DIR="$dir"
+            FOUND_COUNT=$count
+            break
+        else
+            echo -e "[\e[0;33m EMPTY \x1B[0m] (Directory exists but no .deb files)"
+        fi
+    else
+        echo -e "[\e[0;90m MISSING \x1B[0m] (Directory not found)"
+    fi
+done
+
+if [ -z "$TARGET_DIR" ]; then
+    echo -e "[\e[0;33m WARN \x1B[0m] Standard paths failed. Searching /tmp recursively..."
+    FALLBACK_PATH=$(find /tmp -name "cix-*.deb" -print -quit 2>/dev/null | xargs dirname 2>/dev/null)
+    if [ -n "$FALLBACK_PATH" ]; then
+        echo -e "[\e[0;32m FOUND \x1B[0m] Found packages in fallback path: $FALLBACK_PATH"
+        TARGET_DIR="$FALLBACK_PATH"
+        FOUND_COUNT=$(ls "$FALLBACK_PATH"/*.deb 2>/dev/null | wc -l)
+    fi
+fi
+
+if [ -n "$TARGET_DIR" ] && [ "$FOUND_COUNT" -gt 0 ]; then
+    echo -e "[\e[0;32m INSTALL \x1B[0m] Installing from $TARGET_DIR..."
+    apt-get update || echo "Apt update failed, continuing..."
+    DEBIAN_FRONTEND=noninteractive apt-get install -y "$TARGET_DIR"/*.deb
+    echo -e "[\e[0;32m FIX \x1B[0m] Fixing dependencies..."
+    DEBIAN_FRONTEND=noninteractive apt-get install --fix-broken -y
+    echo -e "[\e[0;32m SUCCESS \x1B[0m] CIX packages installed."
+else
+    echo -e "[\e[0;31m ERROR \x1B[0m] CIX packages NOT found. Installation skipped."
+    echo "DEBUG: Listing /tmp structure:"
+    find /tmp -maxdepth 3 -type d 2>/dev/null
+fi
+
+echo -e "[\e[0;32m FIX \x1B[0m] Adding Security Repositories for Bookworm..."
+cat <<REPO | tee -a /etc/apt/sources.list
 # Security
 deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
 deb-src http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
 REPO
+apt-get update
 
-echo "Updating package lists..."
-sudo apt-get update
-echo "Done. Security repositories added."
-sleep 3
-SCRIPT
-
-cat <<'README' > /tmp/README.md
-
-# Changes
-
-# Kernel 
-- Enable /dev/hidraw*
-- Change timer freq 250 to 1000
-- yurex driver(for test)
-
-# Software
-- delete some unnecessary softwares, orangepi-config, orangepi-zsh, plymouth-theme-orangepi
-- put readme and patch_missings.sh on desktop
-
-# Security Repository Fix
-Run './patch_missings.sh' to add security repositories.
-README
-
-# ---------------------------------------------------------
-# 1. /etc/skel への配置 (今後作成されるユーザー用)
-# ---------------------------------------------------------
-mkdir -p /etc/skel/Desktop
-cp /tmp/patch_missings.sh /etc/skel/Desktop/
-cp /tmp/README.md /etc/skel/Desktop/
-chmod +x /etc/skel/Desktop/patch_missings.sh
-
-# ---------------------------------------------------------
-# 2. /home/orangepi への配置 (現在のユーザー用) [重要]
-# ---------------------------------------------------------
-if [ -d "/home/orangepi" ]; then
-    mkdir -p /home/orangepi/Desktop
-    
-    # ファイルをコピー
-    cp /tmp/patch_missings.sh /home/orangepi/Desktop/
-    cp /tmp/README.md /home/orangepi/Desktop/
-    
-    # 実行権限を付与
-    chmod +x /home/orangepi/Desktop/patch_missings.sh
-    
-    # 【最重要】所有者を orangepi に変更する (これがないとroot所有になり編集できない)
-    chown -R orangepi:orangepi /home/orangepi/Desktop
-fi
-
-# 一時ファイルの削除
-rm /tmp/patch_missings.sh /tmp/README.md
-
+echo -e "[\e[0;32m DONE \x1B[0m] Customization Complete"
+exit 0
 EOF
 
 chmod +x "${SRC}"/userpatches/customize-image.sh
+
 
 # Create lib.config if none found in userpatches
 if [[ ! -f "${SRC}"/userpatches/lib.config ]]; then

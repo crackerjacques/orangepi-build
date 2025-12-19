@@ -413,17 +413,27 @@ if [[ ${IGNORE_UPDATES} != yes ]]; then
 			display_alert "Fallback to Gitee" "Cloning ${comp_name}..." "wrn"
 			fetch_from_repo "https://gitee.com/orangepi-xunlong/${comp_name}.git" "${comp_dest}" "branch:main"
 		fi
-	fi
-		CIX_DEBS_SOURCE="${comp_dest}/debs"
-        CIX_DEBS_TARGET="${SRC}/userpatches/overlay/opt/cix_debs"
 
-        if [ -d "$CIX_DEBS_SOURCE" ]; then
-            display_alert "Custom Patch" "Copying ALL CIX debs to overlay..." "info"
-            mkdir -p "$CIX_DEBS_TARGET"
-            cp -f "${CIX_DEBS_SOURCE}"/*.deb "${CIX_DEBS_TARGET}/"
-        else
-            echo -e "[\e[0;31m ERROR \x1B[0m] Source directory not found: $CIX_DEBS_SOURCE"
-        fi
+		echo "DEBUG: comp_dest is '${comp_dest}'"
+			echo "DEBUG: Checking source dir: '${comp_dest}/debs'"
+
+		CIX_DEBS_SOURCE="${comp_dest}/debs"
+		CIX_DEBS_TARGET="${SRC}/userpatches/overlay/opt/cix_debs"
+		mkdir -p "${CIX_DEBS_TARGET}"
+
+		if [ -d "$CIX_DEBS_SOURCE" ]; then
+			display_alert "Custom Patch" "Copying ALL CIX debs to overlay..." "info"
+			
+			cp -f "${CIX_DEBS_SOURCE}"/*.deb "${CIX_DEBS_TARGET}/"
+			
+			count=$(ls "${CIX_DEBS_TARGET}"/*.deb 2>/dev/null | wc -l)
+			echo "DEBUG: Copied $count files to $CIX_DEBS_TARGET"
+			ls -l "${CIX_DEBS_TARGET}"
+		else
+			display_alert "ERROR" "Source directory not found: $CIX_DEBS_SOURCE" "err"
+			ls -ld "${comp_dest}"
+		fi
+	fi
 
 	[[ $BUILD_OPT =~ kernel|image ]] && fetch_from_repo "$KERNELSOURCE" "$KERNELDIR" "$KERNELBRANCH" "yes"
 
