@@ -98,46 +98,42 @@ EXTER="${SRC}/external"
 # Create userpatches directory if not exists
 mkdir -p "${SRC}"/userpatches
 
-CIX_DEBS_SOURCE="${SRC}/external/cache/sources/component_cix-next/debs"
-CIX_DEBS_TARGET="${SRC}/userpatches/overlay/tmp/cix_debs"
+cat <<'EOF' > "${SRC}"/userpatches/customize-image.sh
+#!/bin/bash
 
+echo -e "[\e[0;32m FIX \x1B[0m] Applying Network & SSH Config"
 
-CIX_PACKAGES=(
-    "cix-audio-dsp_1.0.0_arm64.deb"
-    "cix-isp-umd_1.0.0_arm64_orangepi.deb"
-    "cix-common-misc_1.0.0_arm64.deb"
-    "cix-libdrm_1.0.0_arm64.deb"
-    "cix-cpipe_1.0.0_arm64.deb"
-    "cix-libglvnd_1.7.0_arm64.deb"
-    "cix-debian-misc_1.0.0_arm64.deb"
-    "cix-env_1.0.0_arm64.deb"
-    "cix-mesa_24.0.4_arm64.deb"
-    "cix-firmware_1.0.0_arm64.deb"
-    "cix-mnn_1.2.1_arm64.deb"
-    "cix-gpu-dkms_1.0.0_arm64.deb"
-    "cix-gpu-test_1.0.0_arm64.deb"
-    "cix-gpu-umd_2.0.0_arm64.deb"
-    "cix-optee_1.0.0_arm64.deb"
-    "cix-grubcfg_1.0.0_arm64.deb"
-    "cix-tools_1.0.0_arm64.deb"
-    "cix-gstreamer_1.22.1_arm64.deb"
-    "cix-vpu-test_1.0.0_arm64.deb"
-)
+# NetworkManagerの設定
+systemctl enable NetworkManager
 
-if [ -d "$CIX_DEBS_SOURCE" ]; then
-    echo "Copying selected CIX drivers to overlay..."
-    mkdir -p "$CIX_DEBS_TARGET"
-    rm -f "$CIX_DEBS_TARGET"/*.deb
+rm -f /etc/resolv.conf
+echo "nameserver 8.8.8.8" > /etc/resolv.conf
+echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+
+ssh-keygen -A
+systemctl enable ssh
+
+TARGET_DIR="/opt/cix_debs"
+
+if [ -d "$TARGET_DIR" ]; then
+    echo -e "[\e[0;32m INSTALL \x1B[0m] Installing CIX packages from $TARGET_DIR..."
+
+    apt update
+    DEBIAN_FRONTEND=noninteractive apt install -y "$TARGET_DIR"/*.deb
     
-    for deb in "${CIX_PACKAGES[@]}"; do
-        if [ -f "$CIX_DEBS_SOURCE/$deb" ]; then
-            cp -f "$CIX_DEBS_SOURCE/$deb" "$CIX_DEBS_TARGET/"
-        else
-            echo "[\e[0;33m WARN \x1B[0m] Driver package not found: $deb"
-        fi
-    done
+    echo -e "[\e[0;32m FIX \x1B[0m] Fixing broken dependencies if any..."
+    DEBIAN_FRONTEND=noninteractive apt install --fix-broken -y
+    
+    echo -e "[\e[0;32m INFO \x1B[0m] Deb files are kept in $TARGET_DIR"
+else
+    echo -e "[\e[0;33m WARN \x1B[0m] No CIX packages found at $TARGET_DIR."
+    ls -l /opt
 fi
 
+echo -e "[\e[0;32m DONE \x1B[0m] Customization Complete"
+
+exit 0
+EOF
 
 # Generate customize-image.sh
 mkdir -p "${SRC}"/userpatches/overlay/etc/skel/Desktop
@@ -195,6 +191,7 @@ chmod +x "${SRC}"/userpatches/customize-image.sh
 if [[ ! -f "${SRC}"/userpatches/lib.config ]]; then
 	cat <<-EOF > "${SRC}"/userpatches/lib.config
 	PACKAGE_LIST_RM="orangepi-config orangepi-zsh plymouth-theme-orangepi orangepi-wallpapers"
+    PACKAGE_LIST_ADD="network-manager openssh-server"
 	PLYMOUTH="yes"
 	EOF
 fi
