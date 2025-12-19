@@ -17,6 +17,8 @@ In other words, **this modded script is merely a stopgap until it is released,**
 
 # Usage
 
+It will not run on anything other than Ubuntu 22.04.
+
 ```
 git clone -b orangepi6plus https://github.com/crackerjacques/orangepi-build.git opi6_build
 cd opi6_build
