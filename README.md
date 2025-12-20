@@ -46,25 +46,9 @@ chmod +x docker-run.sh
 ./run-docker.sh
 ```
 
-# Network Setup
+# APT/Time fix
 
-When Trixie launched,often network was dead.
 ```
-
-sudo ip link # get your nic name
-sudo ip link set [Your_NIC] up
-
-# new setup resolv.conf
-sudo rm /etc/resolv.conf
-echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf # or your provider's
-sudo systemctl enable --now NetworkManager
-sudo reboot
-
-# test
-ping -c 3 google.com
-sudo apt install nano
-sudo apt update
-
 # if apt update caught error with update
 # set clock to now
 sudo date -s "year-month-day hour:min:sec" # exam, "2025-12-18 16:30:00"
@@ -78,27 +62,21 @@ sudo systemctl enable --now chrony
 
 ## Install Driver
 
-The debs directory contains a fair number of items that break dependencies.  
-Note that in version 20251219,  
-these have been fixed and are built with the driver installed from the outset.  
+The drivers are already installed, so they are not really necessary,  
+but the default packages are available for download.  
+However, be aware that many of these packages may break dependencies.  
 
 ```
-# transfer files from opi6_build/external/cache/sources/component_cix_next/debs
-# to OrangePi6Plus with scp,smb,sftp or physical media
 
-scp -O -r external/cache/sources/component_cix_next/debs orangepi6plus.local:~/
-
-# or plan B in OrangePi6plus, download directly.
-wget https://github.com/orangepi-xunlong/${comp_name}/archive/refs/heads/main.zip
+# Download directly.
+wget https://github.com/orangepi-xunlong/component_cix-next/archive/refs/heads/main.zip
 unzip main.zip
 
-# In OrangePi6Plus
-
-# DO NOT INSTALL!!
+# DO NOT INSTALL FOLLOW DRIVER PACKAGES!!
 # cix-npu-onnxruntime_1.1.0_arm64.deb
 # cix-noe-umd
 
-cd ~/debs
+cd component_cix-next-main/debs
 sudo apt update
 
 # Drivers

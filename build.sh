@@ -98,6 +98,11 @@ EXTER="${SRC}/external"
 # Create userpatches directory if not exists
 mkdir -p "${SRC}"/userpatches
 
+mkdir -p "${SRC}"/userpatches/overlay/etc/skel/Desktop
+
+# Generate customize-image.sh
+mkdir -p "${SRC}"/userpatches/overlay/etc/skel/Desktop
+
 cat <<'EOF' > "${SRC}"/userpatches/customize-image.sh
 #!/bin/bash
 
@@ -109,6 +114,17 @@ rm -f /etc/resolv.conf
 echo "nameserver 8.8.8.8" > /etc/resolv.conf
 echo "nameserver 1.1.1.1" >> /etc/resolv.conf
 
+echo "orangepi6plus" > /etc/hostname
+hostname "orangepi6plus"
+
+cat <<HOSTS > /etc/hosts
+127.0.0.1	localhost
+127.0.1.1	orangepi6plus
+::1		localhost ip6-localhost ip6-loopback
+ff02::1		ip6-allnodes
+ff02::2		ip6-allrouters
+HOSTS
+
 ssh-keygen -A
 systemctl enable ssh
 
@@ -116,16 +132,16 @@ echo -e "[\e[0;32m SEARCH \x1B[0m] Looking for CIX packages..."
 
 TARGET_DIR="/tmp/overlay/opt/cix_debs"
 
-echo -e "[\e[0;32m INSTALL \x1B[0m] Checking target: $TARGET_DIR"
-
 if [ -d "$TARGET_DIR" ]; then
-    count=$(ls "$TARGET_DIR"/*.deb 2>/dev/null | wc -l)
+    # count files safely
+    count=$(find "$TARGET_DIR" -maxdepth 1 -name "*.deb" | wc -l)
     
     if [ "$count" -gt 0 ]; then
         echo -e "[\e[0;32m FOUND \x1B[0m] Found $count packages. Installing..."
         
         apt-get update || echo "Apt update failed, continuing..."
 
+        # Install packages
         DEBIAN_FRONTEND=noninteractive apt-get install -y "$TARGET_DIR"/*.deb
         
         echo -e "[\e[0;32m FIX \x1B[0m] Fixing dependencies..."
@@ -133,12 +149,12 @@ if [ -d "$TARGET_DIR" ]; then
         
         echo -e "[\e[0;32m SUCCESS \x1B[0m] CIX packages installed."
     else
-        echo -e "[\e[0;33m WARN \x1B[0m] Directory exists but is empty."
+        echo -e "[\e[0;33m WARN \x1B[0m] Directory exists but is empty (no .deb files)."
     fi
 else
     echo -e "[\e[0;31m ERROR \x1B[0m] Target directory not found: $TARGET_DIR"
-    echo "DEBUG: Listing /tmp/overlay structure:"
-    ls -R /tmp/overlay 2>/dev/null
+    echo "DEBUG: Listing /tmp structure:"
+    find /tmp -maxdepth 3 -type d 2>/dev/null
 fi
 
 echo -e "[\e[0;32m DONE \x1B[0m] Customization Complete"

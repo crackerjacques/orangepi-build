@@ -57,3 +57,5 @@ xserver-xorg
 xwayland
 zenity
 tree
+network-manager
+openssh-server
