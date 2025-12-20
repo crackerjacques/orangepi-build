@@ -220,6 +220,13 @@ systemctl enable NetworkManager
 rm -f /etc/resolv.conf
 echo "nameserver 8.8.8.8" > /etc/resolv.conf
 echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+
+CURRENT_HOSTNAME=$(hostname)
+if ! grep -q "$CURRENT_HOSTNAME" /etc/hosts; then
+    echo "127.0.1.1 $CURRENT_HOSTNAME" >> /etc/hosts
+    echo -e "[\e[0;32m FIX \x1B[0m] Added $CURRENT_HOSTNAME to /etc/hosts"
+fi
+
 ssh-keygen -A
 systemctl enable ssh
 
