@@ -1,4 +1,6 @@
 # Build script for OrangePi6Plus
+<img width="1280" height="1440" alt="22222" src="https://github.com/user-attachments/assets/5864d5ca-ff9f-4b2c-8b1a-8494450a69a1" />
+
 
 The official build script is...
 - Fails to boot when kernel options are altered
